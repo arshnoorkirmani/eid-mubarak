@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <defs>
+    <linearGradient id="moonGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#F2D675;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#D4AF37;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <circle cx="16" cy="16" r="14" fill="url(#moonGrad)" />
+  <circle cx="20" cy="12" r="12" fill="#030f10" />
+</svg>
