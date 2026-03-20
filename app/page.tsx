@@ -3,6 +3,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import * as htmlToImage from "html-to-image";
 
 type Mode = "professional" | "friendly" | "family";
 type Screen = "loader" | "wish" | "custom" | "result";
@@ -69,6 +70,7 @@ function randomBetween(min: number, max: number) {
 }
 
 export default function Home() {
+  const hijriYear = new Date().getFullYear() - 579;
   const router = useRouter();
 
   const getModeFromParam = (value: string | null): Mode => {
@@ -97,6 +99,7 @@ export default function Home() {
   const [mode, setMode] = useState<Mode>(() => getModeFromParam(getInitialState("mode", "professional")));
   const [themeIdx, setThemeIdx] = useState(() => getThemeFromParam(getInitialState("theme", "0")));
   const [recipient, setRecipient] = useState(() => getInitialState("to", ""));
+  const [sender, setSender] = useState(() => getInitialState("from", ""));
   const [customMessage, setCustomMessage] = useState(() => getInitialState("msg", ""));
   const [fontFamily, setFontFamily] = useState("var(--font-nunito)");
   const [toast, setToast] = useState<string | null>(null);
@@ -301,11 +304,12 @@ export default function Home() {
       params.set("mode", mode);
       params.set("theme", String(themeIdx));
       if (recipient.trim()) params.set("to", recipient.trim());
+      if (sender.trim()) params.set("from", sender.trim());
       if (customMessage.trim()) params.set("msg", customMessage.trim());
 
       return `${origin}${pathname}?${params.toString()}`;
     },
-    [mode, themeIdx, recipient, customMessage],
+    [mode, themeIdx, recipient, sender, customMessage],
   );
 
   const resultShareUrl = useMemo(() => buildShareUrl("result"), [buildShareUrl]);
@@ -354,11 +358,36 @@ export default function Home() {
   useEffect(() => {
     if (screen !== "result") return;
     updateShareLink("result");
-  }, [screen, mode, themeIdx, recipient, customMessage, updateShareLink]);
+  }, [screen, mode, themeIdx, recipient, sender, customMessage, updateShareLink]);
 
   function handleGenerate() {
     setScreen("result");
   }
+
+  const downloadCard = async (elementId: string) => {
+    const cardElement = document.getElementById(elementId);
+    if (!cardElement) return;
+    
+    // Temporarily remove border radius for download to avoid corner artifacts
+    const originalRadius = cardElement.style.borderRadius;
+    cardElement.style.borderRadius = "0px";
+
+    try {
+      const dataUrl = await htmlToImage.toPng(cardElement, {
+        pixelRatio: 2,
+        backgroundColor: "transparent",
+      });
+      const link = document.createElement("a");
+      link.download = `Eid-Mubarak-Card-${recipient || "Wish"}.png`;
+      link.href = dataUrl;
+      link.click();
+      showToast("✨ Card downloaded!");
+    } catch (err) {
+      showToast("❌ Failed to download");
+    } finally {
+      cardElement.style.borderRadius = originalRadius;
+    }
+  };
 
   return (
     <div className="relative min-h-screen w-screen overflow-x-hidden overflow-y-auto scroll-smooth">
@@ -456,12 +485,12 @@ export default function Home() {
             </div>
             <div className="wish-arabic">عيد مبارك</div>
             <div className="wish-title">Eid Mubarak</div>
-            <div className="wish-sub">1446 ه &nbsp;•&nbsp; Eid ul-Fitr</div>
+            <div className="wish-sub">{hijriYear} ه &nbsp;•&nbsp; Eid ul-Fitr</div>
           </div>
 
           <div className="gold-div" />
 
-          <div className="wish-card">
+          <div className="wish-card" id="wishCard">
             <svg className="corner tl" viewBox="0 0 70 70" fill="none">
               <path d="M4,66 Q4,4 66,4" stroke="#D4AF37" strokeWidth="1.4" fill="none" />
               <path d="M4,48 Q22,4 66,4" stroke="#D4AF37" strokeWidth=".7" fill="none" opacity=".5" />
@@ -553,7 +582,7 @@ export default function Home() {
             <div className="wish-card-divider" />
 
             <div className="wish-badge">
-              <span>🌙</span> Eid ul-Fitr 1446 ه
+              <span>🌙</span> Eid ul-Fitr {hijriYear} ه
             </div>
 
             <div className="wish-card-msg">
@@ -572,9 +601,18 @@ export default function Home() {
 
           <button className="btn-share-quick" onClick={() => shareWA(false)}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
-              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
             </svg>
-            Share on WhatsApp (Default)
+            Share on WhatsApp
+          </button>
+
+          <button className="btn-share-quick" onClick={() => downloadCard("wishCard")} style={{ marginTop: "12px", background: "rgba(255, 255, 255, 0.15)" }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            Download Card Image
           </button>
 
           <div className="share-note">
@@ -608,6 +646,16 @@ export default function Home() {
               value={recipient}
               onChange={(e) => setRecipient(e.target.value)}
               placeholder="e.g. Ahmad, Team, Sir Kashif, Family..."
+              maxLength={45}
+            />
+
+            <label className="lbl">✍️ From (Your Name)</label>
+            <input
+              className="inp"
+              id="senderName"
+              value={sender}
+              onChange={(e) => setSender(e.target.value)}
+              placeholder="e.g. Ali, The Kirmani Family..."
               maxLength={45}
             />
 
@@ -720,7 +768,7 @@ export default function Home() {
 
             <div className="result-arabic">عيد مبارك</div>
             <div className="result-title">Eid Mubarak</div>
-            <div className="result-sub">Eid ul-Fitr 1446 ه</div>
+            <div className="result-sub">Eid ul-Fitr {hijriYear} ه</div>
             <div className="result-divider" />
             <div className="result-badge">{BADGES[mode]}</div>
             <div className="result-to">
@@ -733,7 +781,9 @@ export default function Home() {
               )}
             </div>
             <div className="result-msg">{customMessage.trim() || MSGS[mode](recipient)}</div>
-            <div className="result-footer">Created by Arshnoor Kirmani</div>
+            {sender.trim() && (
+              <div className="result-footer">From: {sender.trim()}</div>
+            )}
           </div>
 
           <div className="action-grid">
@@ -742,6 +792,14 @@ export default function Home() {
                 <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
               </svg>
               WhatsApp
+            </button>
+            <button className="btn btn-dl" onClick={() => downloadCard("resultCard")}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              Download Image
             </button>
             <button className="btn btn-copy" onClick={copyCard}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -765,7 +823,7 @@ export default function Home() {
     </AnimatePresence>
   </div>
 
-  <div className="footer">Created by Arshnoor Kirmani</div>
+  <div className="footer">Create Your Personalized Eid Card • Developed by Arshnoor Kirmani</div>
 
   {!isMobile && <div className={`toast ${toast ? "show" : ""}`}>{toast}</div>}
 </div>

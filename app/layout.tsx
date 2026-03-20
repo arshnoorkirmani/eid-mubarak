@@ -31,7 +31,7 @@ export const metadata: Metadata = {
     description: "A festive Next.js app to generate and share customized Eid greetings.",
     images: [
       {
-        url: "/og-image.svg",
+        url: "/og-image.jpeg",
         width: 1200,
         height: 630,
         alt: "Eid Mubarak",
