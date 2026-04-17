@@ -269,6 +269,35 @@ export default function Home() {
 
   async function copyCard() {
     const text = buildShareText(true);
+    const cardElement = document.getElementById("resultCard");
+    
+    if (cardElement) {
+      const originalRadius = cardElement.style.borderRadius;
+      cardElement.style.borderRadius = "0px";
+      showToast("⏳ Copying image & message...");
+
+      try {
+        const blob = await htmlToImage.toBlob(cardElement, {
+          pixelRatio: 2,
+          backgroundColor: "transparent",
+        });
+
+        if (blob && navigator.clipboard && (window as any).ClipboardItem) {
+          const item = new (window as any).ClipboardItem({
+            "image/png": blob,
+            "text/plain": new Blob([text], { type: "text/plain" })
+          });
+          await navigator.clipboard.write([item]);
+          showToast("✨ Image & Message copied!");
+          return;
+        }
+      } catch (err) {
+        console.error("Failed to copy image", err);
+      } finally {
+        cardElement.style.borderRadius = originalRadius;
+      }
+    }
+
     try {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(text);
@@ -287,10 +316,61 @@ export default function Home() {
     }
   }
 
-  function shareWA(forResult: boolean) {
+  async function shareWA(forResult: boolean) {
     const text = buildShareText(forResult);
-    const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
-    window.open(url, "_blank");
+    const cardElement = document.getElementById(forResult ? "resultCard" : "wishCard");
+
+    if (!cardElement) {
+      const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+      window.open(url, "_blank");
+      return;
+    }
+
+    const originalRadius = cardElement.style.borderRadius;
+    cardElement.style.borderRadius = "0px";
+    showToast("⏳ Preparing image...");
+
+    try {
+      const blob = await htmlToImage.toBlob(cardElement, {
+        pixelRatio: 2,
+        backgroundColor: "transparent",
+      });
+
+      if (!blob) throw new Error("Image generation failed");
+
+      const file = new File([blob], `Eid-Mubarak-${recipient || "Card"}.png`, { type: "image/png" });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title: "Eid Mubarak",
+          text: text,
+          files: [file],
+        });
+        showToast("✨ Shared successfully!");
+      } else {
+        // Fallback: Copy image and open WA
+        if (navigator.clipboard && (window as any).ClipboardItem) {
+          const item = new (window as any).ClipboardItem({
+            "image/png": blob,
+          });
+          await navigator.clipboard.write([item]);
+          showToast("✨ Image copied! Paste it in WhatsApp.");
+          setTimeout(() => {
+            const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+            window.open(url, "_blank");
+          }, 1500);
+        } else {
+          throw new Error("Clipboard API not supported");
+        }
+      }
+    } catch (err: any) {
+      if (err.name !== "AbortError") {
+        const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+        window.open(url, "_blank");
+      }
+    } finally {
+      cardElement.style.borderRadius = originalRadius;
+    }
   }
 
   const buildShareUrl = useCallback(
